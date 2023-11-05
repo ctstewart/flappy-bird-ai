@@ -5,8 +5,8 @@ import random
 pygame.init()
 
 # Game Variables
-screen_width = 400
-screen_height = 600
+screen_width = 720
+screen_height = 480
 bird_x = 50
 bird_y = 300
 bird_radius = 20
@@ -46,8 +46,10 @@ while running:
         pipe_height_random = random.randint(-100, 100)
         top_pipe_height = pipe_height_random + pipe_gap // 2
         bottom_pipe_height = screen_height - top_pipe_height - pipe_gap
-        new_pipe_top = pygame.Rect(screen_width, 0, pipe_width, top_pipe_height)
-        new_pipe_bottom = pygame.Rect(screen_width, screen_height - bottom_pipe_height, pipe_width, bottom_pipe_height)
+        new_pipe_top = pygame.Rect(
+            screen_width, 0, pipe_width, top_pipe_height)
+        new_pipe_bottom = pygame.Rect(
+            screen_width, screen_height - bottom_pipe_height, pipe_width, bottom_pipe_height)
         pipes.append((new_pipe_top, new_pipe_bottom))
         last_pipe = time_now
 
@@ -66,7 +68,8 @@ while running:
     pipes = [pipe_pair for pipe_pair in pipes if pipe_pair[0].right > 0]
 
     # Collision detection
-    bird_rect = pygame.Rect(bird_x - bird_radius, bird_y - bird_radius, bird_radius * 2, bird_radius * 2)
+    bird_rect = pygame.Rect(bird_x - bird_radius, bird_y -
+                            bird_radius, bird_radius * 2, bird_radius * 2)
     for pipe_top, pipe_bottom in pipes:
         if bird_rect.colliderect(pipe_top) or bird_rect.colliderect(pipe_bottom):
             running = False  # End the game
@@ -79,7 +82,8 @@ while running:
     for pipe_top, pipe_bottom in pipes:
         pygame.draw.rect(screen, (0, 128, 0), pipe_top)  # Draw top pipe
         pygame.draw.rect(screen, (0, 128, 0), pipe_bottom)  # Draw bottom pipe
-    pygame.draw.circle(screen, (0, 0, 255), (bird_x, bird_y), bird_radius)  # Draw bird
+    pygame.draw.circle(screen, (0, 0, 255), (bird_x, bird_y),
+                       bird_radius)  # Draw bird
 
     # Display score
     font = pygame.font.SysFont(None, 36)
