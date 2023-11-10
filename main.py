@@ -5,6 +5,7 @@ from time import sleep
 # import tensorflow as tf
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, InputLayer
+import matplotlib.pyplot as plt
 
 
 
@@ -199,22 +200,19 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
         if not running:
             reward -= 1000
 
-        total_reward += reward
 
         # Implement this function to define the state
         pipe_top, pipe_bottom = pipes[0]
         next_bird_y = bird_y + bird_movement
         # next_state = (bird_y, bird_movement, pipe_top.bottom,
         #               pipe_bottom.top, pipe_top.left - bird_x)
-        dead = 0
-
 
         # print(pipe_top.bottom, pipe_top.top, pipe_bottom.top, pipe_bottom.bottom)
         # print(bird_y)
         if bird_y > pipe_top.bottom and bird_y < pipe_bottom.top:
             # print(bird_y, pipe_top.bottom, pipe_bottom.top)
             # print("bird in pipe")
-            reward += 0.01
+            reward += 1
         # else:
         #     reward -= 0.01
 
@@ -222,8 +220,14 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
 
         if not running:
             done = True
+            global reward_final
+            reward_final = total_reward
+            
+        total_reward += reward
 
         replay_buffer.add(state, action, reward, next_state, done)
+
+        reward = 0
 
         replay_buffer.step()
 
@@ -255,7 +259,7 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
 model = create_dqn_model((5,))
 starting_episode = 0
 # model = load_model(f"model_{starting_episode}.keras")
-total_episodes = 100000
+total_episodes = 1000
 # epsilon = 1.0  # Starting epsilon value
 epsilon = 1.0
 # epsilon_min = 0.01  # Minimum epsilon value
@@ -265,11 +269,14 @@ epsilon_decay = 0.995
 training_start = 1000  # Start training after 1,000 steps
 training_interval = 200  # Train every 200 steps
 batch_size = 32
-num_episodes = 2000
 replay_buffer = ReplayBuffer(5000)
 discount_factor = 0.99
 global agent_jumps
 agent_jumps = 0
+global reward_final
+reward_final = 0
+x_axis = []
+y_axis = []
 
 for episode in range(starting_episode, total_episodes):
     print("Epsilon: ", epsilon)
@@ -278,7 +285,33 @@ for episode in range(starting_episode, total_episodes):
         epsilon *= epsilon_decay
     print("episode ", episode, " started")
     flappy_bird(model, epsilon, replay_buffer, training_start, training_interval, batch_size, discount_factor)
+    x_axis.append(agent_jumps)
+    y_axis.append(reward_final)
     if episode % 200 == 0:
         model.save(f"model_{episode}.keras")
     print("agent jumps this episode: ", agent_jumps)
+    print()
     agent_jumps = 0
+    reward_final = 0
+
+
+# Example data
+# x = np.linspace(0, 10, 100)  # x-axis data
+# y = np.sin(x)               # y-axis data
+
+# Generating a color gradient from red to blue
+colors = np.linspace(0, 1, len(x_axis))
+scatter = plt.scatter(x_axis, y_axis, c=colors, cmap='coolwarm')
+
+# Adding colorbar for reference
+plt.colorbar(scatter)
+
+# Labeling the axes
+plt.xlabel('X-axis')
+plt.ylabel('Y-axis')
+
+# Title of the plot
+plt.title('Scatter Plot with Color Gradient from Red to Blue')
+
+# Show the plot
+plt.show()
