@@ -1,3 +1,5 @@
+import os
+import pickle
 import pygame
 import random
 import numpy as np
@@ -6,7 +8,6 @@ from time import sleep
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, InputLayer
 import matplotlib.pyplot as plt
-
 
 
 def train_model(model, replay_buffer, batch_size, discount_factor):
@@ -33,7 +34,7 @@ def train_model(model, replay_buffer, batch_size, discount_factor):
             target_q_values[i, actions[i]] = rewards[i] + discount_factor * np.max(predicted_next_q_values[i])
 
     # Train the model
-    model.fit(states, target_q_values, epochs=1, verbose=0)
+    model.fit(states, target_q_values, epochs=10, verbose=0)
 
 
 def choose_action(state, model, epsilon, action_size):
@@ -80,6 +81,7 @@ class ReplayBuffer:
         if len(self.buffer) >= self.capacity:
             self.buffer.pop(0)
         self.buffer.append((state, action, reward, next_state, done))
+        self.step()
 
     def sample(self, batch_size):
         return random.sample(self.buffer, min(len(self.buffer), batch_size))
@@ -118,8 +120,17 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
     action = 0
     total_reward = 0
     reward = 0
-    state = (bird_y, bird_movement, 0, 0, 0)
-    next_state = (bird_y, bird_movement, 0, 0, 0)
+    # State: (
+    # bird's y position,
+    # bird's y velocity,
+    # top pipe's bottom y position,
+    # bottom pipe's top y position,
+    # top pipe's left x position - bird's x position,
+    # next top pipe's bottom y position,
+    # next bottom pipe's top y position,
+    # next top pipe's left x position - bird's x position
+    state = (bird_y, bird_movement, 0, 0, 0, 0, 0, 0)
+    next_state = (bird_y, bird_movement, 0, 0, 0, 0, 0, 0)
 
     # Set up the game window
     screen = pygame.display.set_mode((screen_width, screen_height))
@@ -203,6 +214,10 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
 
         # Implement this function to define the state
         pipe_top, pipe_bottom = pipes[0]
+        next_pipe_top, next_pipe_bottom = None, None
+        if len(pipes) > 1:
+            next_pipe_top, next_pipe_bottom = pipes[1]
+
         next_bird_y = bird_y + bird_movement
         # next_state = (bird_y, bird_movement, pipe_top.bottom,
         #               pipe_bottom.top, pipe_top.left - bird_x)
@@ -216,7 +231,10 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
         # else:
         #     reward -= 0.01
 
-        next_state = (bird_y, next_bird_y, pipe_top.bottom, pipe_bottom.top, pipe_top.left - bird_x)
+        if next_pipe_top is not None and next_pipe_bottom is not None:
+            next_state = (bird_y, next_bird_y, pipe_top.bottom, pipe_bottom.top, pipe_top.left - bird_x, next_pipe_top.bottom, next_pipe_bottom.top, next_pipe_top.left - bird_x)
+        else:
+            next_state = (bird_y, next_bird_y, pipe_top.bottom, pipe_bottom.top, pipe_top.left - bird_x, 0, 0, 0)
 
         if not running:
             done = True
@@ -229,7 +247,7 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
 
         reward = 0
 
-        replay_buffer.step()
+        # replay_buffer.step()
 
         # Draw everything
         screen.fill((0, 0, 0))  # Fill screen with black
@@ -255,19 +273,60 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
 
     pygame.quit()
 
+class ModelBufferManager:
+    def __init__(self, model_dir="model_checkpoints"):
+        self.model_dir = model_dir
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
 
-model = create_dqn_model((5,))
-starting_episode = 0
-# model = load_model(f"model_{starting_episode}.keras")
-total_episodes = 1000
-# epsilon = 1.0  # Starting epsilon value
+    def save_model_and_buffer(self, model, replay_buffer, epsilon, episode):
+        model_path = os.path.join(self.model_dir, f"model_episode_{episode}.keras")
+        buffer_path = os.path.join(self.model_dir, f"buffer_episode_{episode}.pkl")
+        epsilon_path = os.path.join(self.model_dir, f"epsilon_episode_{episode}.txt")
+
+        # Save the model
+        model.save(model_path)
+
+        # Save the replay buffer
+        with open(buffer_path, 'wb') as buffer_file:
+            pickle.dump(replay_buffer, buffer_file)
+        
+        # Save epsilon
+        with open(epsilon_path, 'w') as epsilon_file:
+            epsilon_file.write(str(epsilon))
+
+    def load_model_and_buffer(self, episode):
+        model_path = os.path.join(self.model_dir, f"model_episode_{episode}.keras")
+        buffer_path = os.path.join(self.model_dir, f"buffer_episode_{episode}.pkl")
+        epsilon_path = os.path.join(self.model_dir, f"epsilon_episode_{episode}.txt")
+
+        # Load the model
+        model = load_model(model_path)
+
+        # Load the replay buffer
+        with open(buffer_path, 'rb') as buffer_file:
+            replay_buffer = pickle.load(buffer_file)
+
+        # Load epsilon
+        with open(epsilon_path, 'r') as epsilon_file:
+            epsilon = float(epsilon_file.read())
+
+        return model, replay_buffer, epsilon
+
+
+manager = ModelBufferManager()
+# model = create_dqn_model((8,))
+starting_episode = 967
 epsilon = 1.0
+model, replay_buffer, epsilon = manager.load_model_and_buffer(starting_episode)
+total_episodes = 3000
+# epsilon = 1.0  # Starting epsilon value
 # epsilon_min = 0.01  # Minimum epsilon value
 epsilon_min = 0.1  # Minimum epsilon value
 # epsilon_decay = 0.995  # Factor to decrease epsilon
 epsilon_decay = 0.995
 training_start = 1000  # Start training after 1,000 steps
-training_interval = 200  # Train every 200 steps
+training_interval = 1000  # Train every 1,000 steps
 batch_size = 32
 replay_buffer = ReplayBuffer(5000)
 discount_factor = 0.99
@@ -275,6 +334,7 @@ global agent_jumps
 agent_jumps = 0
 global reward_final
 reward_final = 0
+reward_best = 0
 x_axis = []
 y_axis = []
 
@@ -287,8 +347,12 @@ for episode in range(starting_episode, total_episodes):
     flappy_bird(model, epsilon, replay_buffer, training_start, training_interval, batch_size, discount_factor)
     x_axis.append(agent_jumps)
     y_axis.append(reward_final)
-    if episode % 200 == 0:
-        model.save(f"model_{episode}.keras")
+    # if episode % 200 == 0:
+    #     model.save(f"model_{episode}.keras")
+    # Save best model
+    if reward_final > reward_best:
+        reward_best = reward_final
+        manager.save_model_and_buffer(model, replay_buffer, epsilon, episode)
     print("agent jumps this episode: ", agent_jumps)
     print()
     agent_jumps = 0
