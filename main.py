@@ -120,7 +120,7 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
     action = 0
     total_reward = 0
     reward = 0
-    # State: (
+    # State:
     # bird's y position,
     # bird's y velocity,
     # top pipe's bottom y position,
@@ -144,9 +144,6 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            # if event.type == pygame.KEYDOWN:
-            #     if event.key == pygame.K_SPACE:
-            #         bird_movement = -jump_height
 
         if len(replay_buffer) > training_start and replay_buffer.total_steps % training_interval == 0:
             print("Training model")
@@ -171,10 +168,8 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
             pipe_height_random = random.randint(-100, 100)
             top_pipe_height = pipe_height_random + pipe_gap // 2
             bottom_pipe_height = screen_height - top_pipe_height - pipe_gap
-            new_pipe_top = pygame.Rect(
-                screen_width, 0, pipe_width, top_pipe_height)
-            new_pipe_bottom = pygame.Rect(
-                screen_width, screen_height - bottom_pipe_height, pipe_width, bottom_pipe_height)
+            new_pipe_top = pygame.Rect(screen_width, 0, pipe_width, top_pipe_height)
+            new_pipe_bottom = pygame.Rect(screen_width, screen_height - bottom_pipe_height, pipe_width, bottom_pipe_height)
             pipes.append((new_pipe_top, new_pipe_bottom))
             last_pipe = frame
 
@@ -194,8 +189,7 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
         pipes = [pipe_pair for pipe_pair in pipes if pipe_pair[0].right > 0]
 
         # Collision detection
-        bird_rect = pygame.Rect(bird_x - bird_radius, bird_y -
-                                bird_radius, bird_radius * 2, bird_radius * 2)
+        bird_rect = pygame.Rect(bird_x - bird_radius, bird_y - bird_radius, bird_radius * 2, bird_radius * 2)
         for pipe_top, pipe_bottom in pipes:
             if bird_rect.colliderect(pipe_top) or bird_rect.colliderect(pipe_bottom):
                 running = False  # End the game
@@ -203,39 +197,36 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
         if bird_y > screen_height - bird_radius or bird_y < bird_radius:
             running = False  # Bird hits the ground or goes off screen
 
-        # if running:
-        #     reward += 1
-        # else:
-            # reward -= 1000
-
         if not running:
             reward -= 1000
 
 
         # Implement this function to define the state
-        pipe_top, pipe_bottom = pipes[0]
-        next_pipe_top, next_pipe_bottom = None, None
+        # Get the two sets of pipes that are closest to the bird but not in passed pipes
+        closest_pipes = []
+        for pipe_pair in pipes:
+            if pipe_pair not in passed_pipes:
+                if not closest_pipes:
+                    closest_pipes.append(pipe_pair)
+                elif pipe_pair[0].right > closest_pipes[-1][0].right:
+                    closest_pipes.append(pipe_pair)
+                if len(closest_pipes) == 2:
+                    break
+        next_pipe_top, next_pipe_bottom = closest_pipes[0]
         if len(pipes) > 1:
-            next_pipe_top, next_pipe_bottom = pipes[1]
+            next_next_pipe_top, next_next_pipe_bottom = closest_pipes[1]
+        else:
+            next_next_pipe_top, next_next_pipe_bottom = None, None
 
         next_bird_y = bird_y + bird_movement
-        # next_state = (bird_y, bird_movement, pipe_top.bottom,
-        #               pipe_bottom.top, pipe_top.left - bird_x)
-
-        # print(pipe_top.bottom, pipe_top.top, pipe_bottom.top, pipe_bottom.bottom)
-        # print(bird_y)
         if bird_y > pipe_top.bottom and bird_y < pipe_bottom.top:
-            # print(bird_y, pipe_top.bottom, pipe_bottom.top)
-            # print("bird in pipe")
             reward_multiplier = ((pipe_top.bottom - bird_y) % 100) / 100
             reward += 1 * reward_multiplier
-        # else:
-        #     reward -= 0.01
 
-        if next_pipe_top is not None and next_pipe_bottom is not None:
-            next_state = (bird_y, next_bird_y, pipe_top.bottom, pipe_bottom.top, pipe_top.left - bird_x, next_pipe_top.bottom, next_pipe_bottom.top, next_pipe_top.left - bird_x)
+        if next_next_pipe_top is not None and next_next_pipe_bottom is not None:
+            next_state = (bird_y, next_bird_y, next_pipe_top.bottom, next_pipe_bottom.top, next_pipe_top.left - bird_x, next_next_pipe_top.bottom, next_next_pipe_bottom.top, next_next_pipe_top.left - bird_x)
         else:
-            next_state = (bird_y, next_bird_y, pipe_top.bottom, pipe_bottom.top, pipe_top.left - bird_x, 0, 0, 0)
+            next_state = (bird_y, next_bird_y, next_pipe_top.bottom, next_pipe_bottom.top, next_pipe_top.left - bird_x, 0, 0, 0)
 
         if not running:
             done = True
@@ -248,16 +239,19 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
 
         reward = 0
 
-        # replay_buffer.step()
-
         # Draw everything
         screen.fill((0, 0, 0))  # Fill screen with black
         for pipe_top, pipe_bottom in pipes:
             pygame.draw.rect(screen, (0, 128, 0), pipe_top)  # Draw top pipe
             # Draw bottom pipe
             pygame.draw.rect(screen, (0, 128, 0), pipe_bottom)
-        pygame.draw.circle(screen, (0, 0, 255), (bird_x, bird_y),
-                           bird_radius)  # Draw bird
+        pygame.draw.circle(screen, (0, 0, 255), (bird_x, bird_y), bird_radius)  # Draw bird
+
+        pygame.draw.line(screen, (255, 255, 255), (bird_x, bird_y), next_pipe_top.midbottom, 2)
+        pygame.draw.line(screen, (255, 255, 255), (bird_x, bird_y), next_pipe_bottom.midtop, 2)
+        if (next_next_pipe_top is not None and next_next_pipe_bottom is not None):
+            pygame.draw.line(screen, (255, 255, 255), (bird_x, bird_y), next_next_pipe_top.midbottom, 2)
+            pygame.draw.line(screen, (255, 255, 255), (bird_x, bird_y), next_next_pipe_bottom.midtop, 2)
 
         # Display score
         font = pygame.font.SysFont(None, 36)
@@ -317,7 +311,7 @@ class ModelBufferManager:
 
 manager = ModelBufferManager()
 model = create_dqn_model((8,))
-# starting_episode = 967
+# starting_episode = 972
 starting_episode = 0
 epsilon = 1.0
 # model, replay_buffer, epsilon = manager.load_model_and_buffer(starting_episode)
@@ -328,8 +322,8 @@ epsilon_min = 0.1  # Minimum epsilon value
 # epsilon_decay = 0.995  # Factor to decrease epsilon
 epsilon_decay = 0.995
 training_start = 1000  # Start training after 1,000 steps
-training_interval = 1000  # Train every 1,000 steps
-batch_size = 32
+training_interval = 500  # Train every 500 steps
+batch_size = 256
 replay_buffer = ReplayBuffer(5000)
 discount_factor = 0.99
 global agent_jumps
@@ -352,9 +346,9 @@ for episode in range(starting_episode, total_episodes):
     # if episode % 200 == 0:
     #     model.save(f"model_{episode}.keras")
     # Save best model
-    if reward_final > reward_best:
-        reward_best = reward_final
-        manager.save_model_and_buffer(model, replay_buffer, epsilon, episode)
+    # if reward_final > reward_best:
+    #     reward_best = reward_final
+    #     manager.save_model_and_buffer(model, replay_buffer, epsilon, episode)
     print("agent jumps this episode: ", agent_jumps)
     print()
     agent_jumps = 0
