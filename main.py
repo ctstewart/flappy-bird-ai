@@ -227,7 +227,8 @@ def flappy_bird(model, epsilon, replay_buffer, training_start, training_interval
         if bird_y > pipe_top.bottom and bird_y < pipe_bottom.top:
             # print(bird_y, pipe_top.bottom, pipe_bottom.top)
             # print("bird in pipe")
-            reward += 1
+            reward_multiplier = ((pipe_top.bottom - bird_y) % 100) / 100
+            reward += 1 * reward_multiplier
         # else:
         #     reward -= 0.01
 
@@ -315,11 +316,12 @@ class ModelBufferManager:
 
 
 manager = ModelBufferManager()
-# model = create_dqn_model((8,))
-starting_episode = 967
+model = create_dqn_model((8,))
+# starting_episode = 967
+starting_episode = 0
 epsilon = 1.0
-model, replay_buffer, epsilon = manager.load_model_and_buffer(starting_episode)
-total_episodes = 3000
+# model, replay_buffer, epsilon = manager.load_model_and_buffer(starting_episode)
+total_episodes = 1000
 # epsilon = 1.0  # Starting epsilon value
 # epsilon_min = 0.01  # Minimum epsilon value
 epsilon_min = 0.1  # Minimum epsilon value
