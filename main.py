@@ -68,6 +68,7 @@ def create_dqn_model(state_shape, action_size=2):
         Dense(action_size, activation='linear')  # Output layer
     ])
     model.compile(optimizer='adam', loss='mse')
+    model.summary()
     return model
 
 
