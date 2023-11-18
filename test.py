@@ -162,8 +162,8 @@ def flappy_bird(model):
 
 
 model_episode = 749
-model_dir = 'model_checkpoints'
-model_path = os.path.join(model_dir, f"model_episode_{749}.keras")
+model_dir = 'model_checkpoints/best_in_first_1000'
+model_path = os.path.join(model_dir, f"model_episode_{model_episode}.keras")
 model = load_model(model_path)
 
 global high_score
